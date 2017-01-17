@@ -6,7 +6,7 @@ Targeting spec: draft-thomas-crypto-conditions-02 of December 20, 2016
 
 Supports all standard condition types except RSA.
 
-Needs more testing. [Some tests](../test/) exist.
+Needs more testing. [Some tests](./test/) exist.
 
 ## Design
 
