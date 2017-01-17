@@ -1,0 +1,4 @@
+[submodule "ext/five-bells-condition"]
+	path = ext/five-bells-condition
+	url = https://github.com/libscott/five-bells-condition
+	branch = fixes
