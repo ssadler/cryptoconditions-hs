@@ -1,0 +1,9 @@
+resolver: lts-7.14
+packages:
+- '.'
+extra-deps:
+    - quickson-0.3
+
+flags: {}
+
+extra-package-dbs: []
