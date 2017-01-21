@@ -42,7 +42,7 @@ test-suite cryptoconditions-test
                      , base64-bytestring
                      , bytestring
                      , cryptonite
-                     , quickson
+                     , aeson-quick
                      , text
                      , transformers
                      , tasty
