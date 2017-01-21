@@ -75,7 +75,7 @@ getConditionURI c =
       subtypes = if hasSubtypes ct
                     then "&subtypes=" <> typeNames (getSubtypes c)
                     else ""
-   in "ni:" <> hashFunc ct <> ";" <> f
+   in "ni:///" <> hashFunc ct <> ";" <> f
        <> "?fpt=" <> typeName ct <> "&cost="
        <> cost <> subtypes
 
