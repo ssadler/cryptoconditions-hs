@@ -56,8 +56,9 @@ compareASN1 a b = decodeASN1' DER a @?= decodeASN1' DER b
 
 
 testVerify :: T.Text -> BS.ByteString -> T.Text -> IO ()
-testVerify msg ffillment uri = do
-  let econd = readStandardFulfillment (encodeUtf8 msg) ffillment
+testVerify tmsg ffillment uri = do
+  let msg = Just (encodeUtf8 tmsg)
+      econd = readStandardFulfillment msg ffillment
   getURI <$> econd @?= Right uri
 
 

@@ -23,9 +23,14 @@ ed2Alice, ed2Bob :: Condition
 ed2Alice = ed25519Condition pkAlice
 ed2Bob = ed25519Condition pkBob
 
+
 pkAlice, pkBob :: PublicKey
 pkAlice = throwCryptoError $ publicKey alice
 pkBob = throwCryptoError $ publicKey bob
+
+
+skAlice :: SecretKey
+skAlice = toSecret aliceSK
 
 
 toPub :: BS.ByteString -> PublicKey
@@ -35,3 +40,6 @@ toPub = throwCryptoError . publicKey
 toSig :: BS.ByteString -> Signature
 toSig = throwCryptoError . signature
 
+
+toSecret :: BS.ByteString -> SecretKey
+toSecret = throwCryptoError . secretKey

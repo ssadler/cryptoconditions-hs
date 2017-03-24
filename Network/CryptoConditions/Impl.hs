@@ -40,7 +40,7 @@ class Show c => IsCondition c where
   getSubtypes :: c -> Set.Set ConditionType
   getURI :: c -> T.Text
   getURI = getConditionURI
-  parseFulfillment :: Int -> Message -> ParseASN1 c
+  parseFulfillment :: Int -> Maybe Message -> ParseASN1 c
   anon :: Int -> BS.ByteString -> Int -> Set.Set Int -> c
 
 
@@ -85,13 +85,18 @@ getFulfillmentBase64 =
   fmap (decodeUtf8 . B64.encode) . getFulfillment
 
 
-readFulfillment :: IsCondition c => Message -> Fulfillment
+readFulfillment :: IsCondition c => Maybe Message -> Fulfillment
                 -> Either String c
-readFulfillment msg bs = parseASN1 bs (verifyPoly msg)
+readFulfillment mmsg bs = parseASN1 bs (verifyPoly mmsg)
 
 
-verifyPoly :: IsCondition c => Message -> ParseASN1 c
-verifyPoly msg = withContainerContext (flip parseFulfillment msg)
+readFulfillmentBase64 :: IsCondition c => Maybe Message -> Fulfillment
+                      -> Either String c
+readFulfillmentBase64 msg = readFulfillment msg . B64.decodeLenient 
+
+
+verifyPoly :: IsCondition c => Maybe Message -> ParseASN1 c
+verifyPoly = withContainerContext . flip parseFulfillment
 
 
 --------------------------------------------------------------------------------
@@ -158,7 +163,7 @@ preimageFingerprint :: Preimage -> Fingerprint
 preimageFingerprint = sha256
 
 
-parsePreimage :: (Preimage -> c) -> Message -> ParseASN1 c
+parsePreimage :: (Preimage -> c) -> Maybe Message -> ParseASN1 c
 parsePreimage construct _ = construct <$> parseOther 0
 
 
@@ -206,15 +211,19 @@ prefixSubtypes cond =
    in Set.delete prefixType all'
 
 
-parsePrefix :: IsCondition c => (Prefix -> Int -> c -> c) -> Message
-            -> ParseASN1 c
-parsePrefix construct msg = do
+parsePrefix :: IsCondition c => (Prefix -> Int -> c -> c)
+            -> Maybe Message -> ParseASN1 c
+parsePrefix construct mmsg = do
   (pre, mmlbs) <- (,) <$> parseOther 0 <*> parseOther 1
   let mml = fromIntegral $ uIntFromBytes $ BS.unpack mmlbs
-  when (mml < BS.length msg) $
-    throwParseError "Max message length exceeded" -- TODO
+  mmsg' <- case mmsg of
+             Just msg -> do
+                when (mml < BS.length msg) $
+                  throwParseError "Max message length exceeded" -- TODO
+                pure $ Just (pre <> msg)
+             Nothing -> pure Nothing
   -- TODO: D is equal to C?
-  cond <- onNextContainer (Container Context 2) (verifyPoly (pre <> msg))
+  cond <- onNextContainer (Container Context 2) (verifyPoly mmsg')
   pure $ construct pre mml cond
 
 
@@ -275,8 +284,8 @@ thresholdCost t subs =
    in sum largest + 1024 * length subs
 
 
-parseThreshold :: IsCondition c => (Word16 -> [c] -> c) -> Message 
-                -> ParseASN1 c
+parseThreshold :: IsCondition c => (Word16 -> [c] -> c) -> Maybe Message 
+               -> ParseASN1 c
 parseThreshold construct msg = do
   ffills <- onNextContainer (Container Context 0) $ getMany $ verifyPoly msg
   conds <- onNextContainer (Container Context 1) $ getMany parseCondition
@@ -323,15 +332,17 @@ ed25519Fulfillment pk sig = encodeASN1' DER body
   where body = fiveBellsContainer (typeId ed25519Type) [toData pk, toData sig]
 
 
-parseEd25519 :: (Ed2.PublicKey -> Ed2.Signature -> c) -> Message -> ParseASN1 c
-parseEd25519 construct msg = do
+parseEd25519 :: (Ed2.PublicKey -> Ed2.Signature -> c) -> Maybe Message
+             -> ParseASN1 c
+parseEd25519 construct mmsg = do
   (bspk, bssig) <- (,) <$> parseOther 0 <*> parseOther 1
   (pk,sig) <- either throwParseError pure $
     (,) <$> toKey (Ed2.publicKey bspk)
         <*> toKey (Ed2.signature bssig)
-  if Ed2.verify pk msg sig
+  let verify msg = Ed2.verify pk msg sig
+  if (verify <$> mmsg) /= Just False
      then pure $ construct pk sig
-     else fail "Ed25519 does not validate"
+     else throwParseError "Ed25519 does not validate"
 
 
 --------------------------------------------------------------------------------

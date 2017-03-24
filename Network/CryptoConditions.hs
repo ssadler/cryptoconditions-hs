@@ -97,5 +97,5 @@ fulfillEd25519 pk sig e@(Ed25519 pk' Nothing) =
 fulfillEd25519 _ _ c = c
 
 
-readStandardFulfillment :: Message -> Fulfillment -> Either String Condition
+readStandardFulfillment :: Maybe Message -> Fulfillment -> Either String Condition
 readStandardFulfillment = readFulfillment
