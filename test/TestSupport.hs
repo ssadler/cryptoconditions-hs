@@ -2,44 +2,54 @@
 
 module TestSupport where
 
-
 import Crypto.Error
 import Crypto.PubKey.Ed25519
 
 import Network.CryptoConditions
 
-
-import qualified Data.ByteString as BS
-
-
-alice, bob, aliceSK, bobSK :: BS.ByteString
-alice = "\DC1\ETXf\236\&5!L\147\EOT\b|%\DLE\237y\fp\187\DC4:\229\ETX\247\234X\219\187\196\SO\NAK8\220"
-aliceSK = "*J\255(*-B'Z\168\151\DLE\227j\DC139&\DLE\136\ETB/\ETX\SOH9_Y'\227>1\254"
-bob = "s|l\222<\204\DLE\219(#~)\142\245HE\STXdC\219.\181DE\EOT\166c\179\133\DC2\130;"
-bobSK = "C\SOH\NAK 6P\151\165|\156\144of-B\174\245h\166\188\135\158\SO\195\b)\253\168\f\221\205\RS"
+import Data.ByteString
 
 
-ed2Alice, ed2Bob :: Condition
+umsg :: ByteString
+umsg = "\240\159\141\186\\uD83C\\uDF7A"
+
+
+ed2Alice, ed2Bob, ed2Eve :: Condition
 ed2Alice = ed25519Condition pkAlice
 ed2Bob = ed25519Condition pkBob
+ed2Eve = ed25519Condition pkEve
+
+
+ed2BobF, ed2EveF :: Condition
+ed2BobF = fulfillEd25519 pkBob sigBob ed2Bob
+ed2EveF = fulfillEd25519 pkEve sigEve ed2Eve
 
 
 pkAlice, pkBob :: PublicKey
-pkAlice = throwCryptoError $ publicKey alice
-pkBob = throwCryptoError $ publicKey bob
+pkAlice = toPublic skAlice
+pkBob = toPublic skBob
+pkEve = toPublic skEve
 
 
-skAlice :: SecretKey
-skAlice = toSecret aliceSK
+skAlice, skBob, skEve :: SecretKey
+skAlice = toSecret "B\SOH\NAK 6P\151\165|\156\144of-B\174\245h\166\188\135\158\SO\195\b)\253\168\f\221\205\RS"
+skBob = toSecret "C\SOH\NAK 6P\151\165|\156\144of-B\174\245h\166\188\135\158\SO\195\b)\253\168\f\221\205\RS"
+skEve = toSecret "D\SOH\NAK 6P\151\165|\156\144of-B\174\245h\166\188\135\158\SO\195\b)\253\168\f\221\205\RS"
 
 
-toPub :: BS.ByteString -> PublicKey
+toSecret :: ByteString -> SecretKey
+toSecret = throwCryptoError . secretKey
+
+
+sigAlice, sigBob, sigEve :: Signature
+sigAlice = sign skAlice pkAlice umsg
+sigBob = sign skBob pkBob umsg
+sigEve = sign skEve pkEve umsg
+
+
+toPub :: ByteString -> PublicKey
 toPub = throwCryptoError . publicKey
 
 
-toSig :: BS.ByteString -> Signature
+toSig :: ByteString -> Signature
 toSig = throwCryptoError . signature
-
-
-toSecret :: BS.ByteString -> SecretKey
-toSecret = throwCryptoError . secretKey

@@ -72,6 +72,12 @@ instance IsCondition Condition where
   parseFulfillment 2 = parseThreshold Threshold
   parseFulfillment 4 = parseEd25519 (\a b -> Ed25519 a (Just b))
 
+  verifyMessage (Preimage image) = verifyPreimage image
+  verifyMessage (Prefix pre mml cond) = verifyPrefix pre mml cond
+  verifyMessage (Threshold m subs) = verifyThreshold m subs
+  verifyMessage (Ed25519 pk (Just sig)) = verifyEd25519 pk sig
+  verifyMessage _ = const False
+
   anon t f c = Anon t f c . toConditionTypes
 
 
@@ -97,5 +103,5 @@ fulfillEd25519 pk sig e@(Ed25519 pk' Nothing) =
 fulfillEd25519 _ _ c = c
 
 
-readStandardFulfillment :: Maybe Message -> Fulfillment -> Either String Condition
+readStandardFulfillment :: Fulfillment -> Either String Condition
 readStandardFulfillment = readFulfillment

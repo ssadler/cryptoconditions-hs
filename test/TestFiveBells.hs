@@ -57,15 +57,15 @@ compareASN1 a b = decodeASN1' DER a @?= decodeASN1' DER b
 
 testVerify :: T.Text -> BS.ByteString -> T.Text -> IO ()
 testVerify tmsg ffillment uri = do
-  let msg = Just (encodeUtf8 tmsg)
-      econd = readStandardFulfillment msg ffillment
-  getURI <$> econd @?= Right uri
+  let msg = encodeUtf8 tmsg
+      econd@(Right ffill) = readStandardFulfillment ffillment
+  validate uri ffill msg @?= True
 
 
 testMinimalPreimage :: TestTree
 testMinimalPreimage = testGroup f
   [ testCase "binary condition" $ encodeCondition cond @?= condBin
-  , testCase "uri" $ getURI cond @?= condUri
+  , testCase "uri" $ getConditionURI cond @?= condUri
   , testCase "fulfillment" $ getFulfillment cond @?= Just ffillment
   , testCase "verify" $ testVerify msg ffillment condUri
   ]
@@ -82,7 +82,7 @@ testMinimalPreimage = testGroup f
 testMinimalPrefix :: TestTree
 testMinimalPrefix = testGroup f
   [ testCase "binary condition" $ encodeCondition cond `compareASN1` condBin
-  , testCase "uri" $ getURI cond @?= condUri
+  , testCase "uri" $ getConditionURI cond @?= condUri
   , testCase "fulfillment" $
       fromJust (getFulfillment cond) `compareASN1` ffillment
   , testCase "verify" $ testVerify msg ffillment condUri
@@ -102,7 +102,7 @@ testMinimalPrefix = testGroup f
 testMinimalThreshold :: TestTree
 testMinimalThreshold = testGroup f
   [ testCase "binary condition" $ encodeCondition cond `compareASN1` condBin
-  , testCase "uri" $ getURI cond @?= condUri
+  , testCase "uri" $ getConditionURI cond @?= condUri
   , testCase "fulfillment" $
       fromJust (getFulfillment cond) `compareASN1` ffillment
   , testCase "verify" $ testVerify msg ffillment condUri
@@ -121,7 +121,7 @@ testMinimalThreshold = testGroup f
 testMinimalEd25519 :: TestTree
 testMinimalEd25519 = testGroup f
   [ testCase "binary condition" $ encodeCondition cond @?= condBin
-  , testCase "uri" $ getURI cond @?= condUri
+  , testCase "uri" $ getConditionURI cond @?= condUri
   , testCase "fulfillment" $ getFulfillment cond @?= Just ffillment
   , testCase "verify" $ testVerify msg ffillment condUri
   ]
@@ -139,7 +139,7 @@ testMinimalEd25519 = testGroup f
 testBasicPrefix :: TestTree
 testBasicPrefix = testGroup f
   [ testCase "binary condition" $ encodeCondition cond `compareASN1` condBin
-  , testCase "uri" $ getURI cond @?= condUri
+  , testCase "uri" $ getConditionURI cond @?= condUri
   , testCase "fulfillment" $
       fromJust (getFulfillment cond) `compareASN1` ffillment
   , testCase "verify" $ testVerify msg ffillment condUri
@@ -161,7 +161,7 @@ testBasicPrefix = testGroup f
 testBasicThresholdSchroedinger :: TestTree
 testBasicThresholdSchroedinger = testGroup f
   [ testCase "binary condition" $ encodeCondition cond `compareASN1` condBin
-  , testCase "uri" $ getURI cond @?= condUri
+  , testCase "uri" $ getConditionURI cond @?= condUri
   , testCase "fulfillment" $
       fromJust (getFulfillment cond) `compareASN1` ffillment
   , testCase "verify" $ testVerify msg ffillment condUri
@@ -175,5 +175,3 @@ testBasicThresholdSchroedinger = testGroup f
     ffillment = fromB16 $ val .! "{fulfillment}"
     (msg,condUri) = val .! "{message,conditionUri}"
     cond = Threshold t $ preimageCondition <$> preimages
-
-
