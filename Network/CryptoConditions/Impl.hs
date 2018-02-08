@@ -9,6 +9,7 @@ import qualified Crypto.PubKey.Ed25519 as Ed2
 
 import Control.Monad (when)
 
+import qualified Data.Aeson.Types as Aeson
 import Data.ASN1.BinaryEncoding
 import Data.ASN1.BinaryEncoding.Raw
 import Data.ASN1.Encoding

@@ -18,7 +18,9 @@ library
   exposed-modules:     Network.CryptoConditions
                      , Network.CryptoConditions.Encoding
                      , Network.CryptoConditions.Impl
+                     , Network.CryptoConditions.Json
   build-depends:       base >= 4.7 && < 5
+                     , aeson
                      , asn1-encoding
                      , asn1-parse
                      , asn1-types

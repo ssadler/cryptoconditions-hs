@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 --------------------------------------------------------------------------------
 -- Crypto Conditions Standard API
 --
@@ -18,11 +20,13 @@ module Network.CryptoConditions
 
 import qualified Crypto.PubKey.Ed25519 as Ed2
 
+import Data.Aeson.Types
 import Data.ByteString as BS
 import Data.Word
 import qualified Data.Set as Set
 
 import Network.CryptoConditions.Impl as CCI
+import Network.CryptoConditions.Json as CCJ
 
 
 data Condition =
@@ -106,3 +110,22 @@ fulfillEd25519 _ _ c = c
 
 readStandardFulfillment :: Fulfillment -> Either String Condition
 readStandardFulfillment = readFulfillment
+
+
+instance ToJSON Condition where
+  toJSON (Threshold t subs) = toJsonThreshold t subs
+  toJSON (Ed25519 pk msig) = toJsonEd25519 pk msig
+  toJSON (Prefix pre mml c) = toJsonPrefix pre mml c
+  toJSON (Preimage img) = toJsonPreimage img
+
+
+instance FromJSON Condition where
+  parseJSON = withObject "condition" $ \o -> do
+    typeName <- o .: "type"
+    let method = case typeName of
+         "preimage-sha-256" -> CCJ.parseJsonPreimage Preimage
+         "prefix-sha-256" -> parseJsonPrefix Prefix
+         "threshold-sha-256" -> parseJsonThreshold Threshold
+         "ed25519-sha-256" -> parseJsonEd25519 Ed25519
+         _                 -> fail ("Unknown Crypto-Condition type: " ++ typeName)
+    method o

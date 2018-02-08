@@ -10,6 +10,8 @@ import Test.Tasty.HUnit
 
 import Data.ASN1.Encoding 
 import Data.ASN1.BinaryEncoding
+import Data.Aeson
+import Data.Aeson.Types
 import Data.Aeson.Quick
 import Data.Maybe
 import Data.Monoid
@@ -25,153 +27,39 @@ import Network.CryptoConditions.Encoding
 
 import TestSupport
 
+import Debug.Trace
+
 
 fiveBellsSuite :: TestTree
 fiveBellsSuite = testGroup "fiveBells"
-  [ testMinimalPreimage
-  , testMinimalPrefix
-  , testMinimalThreshold
-  , testMinimalEd25519
-  , testBasicPrefix
-  , testBasicThresholdSchroedinger
+  [ testVectors "0000_test-minimal-preimage.json"
+  , testVectors "0001_test-minimal-prefix.json"
+  , testVectors "0002_test-minimal-threshold.json"
+  , testVectors "0004_test-minimal-ed25519.json"
+  , testVectors "0006_test-basic-prefix.json"
+  , testVectors "0012_test-basic-threshold-schroedinger.json"
+  , testVectors "0017_test-advanced-notarized-receipt-multiple-notaries.json"
   ]
 
 
-suiteJson :: FromJSON a => FilePath -> a
-suiteJson file = unsafePerformIO $ do
-  let path = "ext/crypto-conditions/test-vectors/valid/" <> file
-  fromJust . decodeStrict <$> BS.readFile path
+testVectors :: String -> TestTree
+testVectors file = testGroup file
+  [ testCase "encodeCondition" $ encodeCondition cond @?= condBin
+  , testCase "getFulfillment" $ getFulfillment cond @?= Just ffillBin
+  , testCase "getConditionURI" $ getConditionURI cond @?= condUri
+  , testCase "validate" $ validate condUri cond msg @?= True
+  ]
+  where
+    val = unsafePerformIO $ do
+      let path = "ext/crypto-conditions/test-vectors/valid/" <> file
+      fromJust . decodeStrict <$> BS.readFile path
+    cond = val .! "{json}" :: Condition
+    condBin = fromB16 $ val .! "{conditionBinary}"
+    ffillBin = fromB16 $ val .! "{fulfillment}"
+    condUri = val .! "{conditionUri}"
+    msg = encodeUtf8 $ val .! "{message}"
 
 
-fromB16 :: T.Text -> BS.ByteString    
+fromB16 :: T.Text -> BS.ByteString
 fromB16 t = let (r,"") = B16.decode $ encodeUtf8 t
              in r
-
-fromB64 :: T.Text -> BS.ByteString
-fromB64 = either error id . b64DecodeStripped . encodeUtf8
-
-
-compareASN1 :: BS.ByteString -> BS.ByteString -> IO ()
-compareASN1 a b = decodeASN1' DER a @?= decodeASN1' DER b
-
-
-testVerify :: T.Text -> BS.ByteString -> T.Text -> IO ()
-testVerify tmsg ffillment uri = do
-  let msg = encodeUtf8 tmsg
-      econd@(Right ffill) = readStandardFulfillment ffillment
-  validate uri ffill msg @?= True
-
-
-testMinimalPreimage :: TestTree
-testMinimalPreimage = testGroup f
-  [ testCase "binary condition" $ encodeCondition cond @?= condBin
-  , testCase "uri" $ getConditionURI cond @?= condUri
-  , testCase "fulfillment" $ getFulfillment cond @?= Just ffillment
-  , testCase "verify" $ testVerify msg ffillment condUri
-  ]
-  where
-    f = "0000_test-minimal-preimage.json"
-    val = suiteJson f
-    preimage = encodeUtf8 $ val .! "{json:{preimage}}"
-    condBin = fromB16 $ val .! "{conditionBinary}"
-    ffillment = fromB16 $ val .! "{fulfillment}"
-    (msg,condUri) = val .! "{message,conditionUri}"
-    cond = preimageCondition preimage
-
-
-testMinimalPrefix :: TestTree
-testMinimalPrefix = testGroup f
-  [ testCase "binary condition" $ encodeCondition cond `compareASN1` condBin
-  , testCase "uri" $ getConditionURI cond @?= condUri
-  , testCase "fulfillment" $
-      fromJust (getFulfillment cond) `compareASN1` ffillment
-  , testCase "verify" $ testVerify msg ffillment condUri
-  ]
-  where
-    f = "0001_test-minimal-prefix.json"
-    val = suiteJson f
-    maxMessageLength = val .! "{json:{maxMessageLength}}"
-    prefix = encodeUtf8 $ val .! "{json:{prefix}}"
-    preimage = encodeUtf8 $ val .! "{json:{subfulfillment:{preimage}}}"
-    condBin = fromB16 $ val .! "{conditionBinary}"
-    ffillment = fromB16 $ val .! "{fulfillment}"
-    (msg,condUri) = val .! "{message,conditionUri}"
-    cond = Prefix prefix maxMessageLength (preimageCondition preimage)
-
-
-testMinimalThreshold :: TestTree
-testMinimalThreshold = testGroup f
-  [ testCase "binary condition" $ encodeCondition cond `compareASN1` condBin
-  , testCase "uri" $ getConditionURI cond @?= condUri
-  , testCase "fulfillment" $
-      fromJust (getFulfillment cond) `compareASN1` ffillment
-  , testCase "verify" $ testVerify msg ffillment condUri
-  ]
-  where
-    f = "0002_test-minimal-threshold.json"
-    val = suiteJson f
-    t = val .! "{json:{threshold}}"
-    [preimage] = encodeUtf8 <$> val .! "{json:{subfulfillments:[{preimage}]}}"
-    condBin = fromB16 $ val .! "{conditionBinary}"
-    ffillment = fromB16 $ val .! "{fulfillment}"
-    (msg,condUri) = val .! "{message,conditionUri}"
-    cond = Threshold t [preimageCondition preimage]
-
-
-testMinimalEd25519 :: TestTree
-testMinimalEd25519 = testGroup f
-  [ testCase "binary condition" $ encodeCondition cond @?= condBin
-  , testCase "uri" $ getConditionURI cond @?= condUri
-  , testCase "fulfillment" $ getFulfillment cond @?= Just ffillment
-  , testCase "verify" $ testVerify msg ffillment condUri
-  ]
-  where
-    f = "0004_test-minimal-ed25519.json"
-    val = suiteJson f
-    pub = toPub $ fromB64 $ val .! "{json:{publicKey}}"
-    sig = toSig $ fromB64 $ val .! "{json:{signature}}"
-    condBin = fromB16 $ val .! "{conditionBinary}"
-    ffillment = fromB16 $ val .! "{fulfillment}"
-    (msg,condUri) = val .! "{message,conditionUri}"
-    cond = fulfillEd25519 pub sig $ ed25519Condition pub
-
-
-testBasicPrefix :: TestTree
-testBasicPrefix = testGroup f
-  [ testCase "binary condition" $ encodeCondition cond `compareASN1` condBin
-  , testCase "uri" $ getConditionURI cond @?= condUri
-  , testCase "fulfillment" $
-      fromJust (getFulfillment cond) `compareASN1` ffillment
-  , testCase "verify" $ testVerify msg ffillment condUri
-  ]
-  where
-    f = "0006_test-basic-prefix.json"
-    val = suiteJson f
-    maxMessageLength = val .! "{json:{maxMessageLength}}"
-    prefix = fromB64 $ val .! "{json:{prefix}}"
-    condBin = fromB16 $ val .! "{conditionBinary}"
-    ffillment = fromB16 $ val .! "{fulfillment}"
-    (msg,condUri) = val .! "{message,conditionUri}"
-    pub = toPub $ fromB64 $ val .! "{json:{subfulfillment:{publicKey}}}" 
-    sig = toSig $ fromB64 $ val .! "{json:{subfulfillment:{signature}}}"
-    subcond = Ed25519 pub (Just sig)
-    cond = Prefix prefix maxMessageLength subcond
-
-
-testBasicThresholdSchroedinger :: TestTree
-testBasicThresholdSchroedinger = testGroup f
-  [ testCase "binary condition" $ encodeCondition cond `compareASN1` condBin
-  , testCase "uri" $ getConditionURI cond @?= condUri
-  , testCase "fulfillment" $
-      fromJust (getFulfillment cond) `compareASN1` ffillment
-  , testCase "verify" $ testVerify msg ffillment condUri
-  ]
-  where
-    f = "0012_test-basic-threshold-schroedinger.json"
-    val = suiteJson f
-    t = val .! "{json:{threshold}}"
-    preimages = fromB64 <$> val .! "{json:{subfulfillments:[{preimage}]}}"
-    condBin = fromB16 $ val .! "{conditionBinary}"
-    ffillment = fromB16 $ val .! "{fulfillment}"
-    (msg,condUri) = val .! "{message,conditionUri}"
-    cond = Threshold t $ preimageCondition <$> preimages
