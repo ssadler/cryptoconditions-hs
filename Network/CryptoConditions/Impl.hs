@@ -60,7 +60,7 @@ encodeConditionASN c =
   let ct = getType c
       fingerprint = getFingerprint c
       costBs = BS.pack $ bytesOfUInt $ fromIntegral $ getCost c
-      subtypes = "\a" <> (typeMask $ Set.map typeId $ getSubtypes c)
+      subtypes = toBitString $ Set.map typeId $ getSubtypes c
       body = [fingerprint, costBs] ++
              if hasSubtypes ct then [subtypes] else []
    in fiveBellsContainer (typeId ct) body
@@ -98,7 +98,7 @@ parsePoly = withContainerContext parseFulfillment
 
 validate :: IsCondition c => T.Text -> c -> Message -> Bool
 validate condUri ffill msg =
-  verifyMessage ffill msg && getConditionURI ffill == condUri 
+  verifyMessage ffill msg && getConditionURI ffill == condUri
 
 
 --------------------------------------------------------------------------------
@@ -123,25 +123,8 @@ instance Ord ConditionType where
   ct <= ct' = typeId ct <= typeId ct'
 
 
--- Functions for working with sets of condition types
---
 typeNames :: Set.Set ConditionType -> T.Text
 typeNames = T.intercalate "," . map typeName . Set.toAscList
-
-
--- This should figure prepend the range itself.
-typeMask :: Set.Set Int -> BS.ByteString
-typeMask cts =
-  let op i = shiftL 1 (7 - mod i 8)
-      bits = Set.map op cts
-      mask = foldl (.|.) 0 bits :: Int
-   in BS.singleton $ fromIntegral mask
-
-
-unTypeMask :: BS.ByteString -> Set.Set Int
-unTypeMask maskbs = Set.fromList $
-  let [n, w] = fromIntegral <$> BS.unpack maskbs
-   in filter (\i -> 0 /= w .&. (shiftL 1 (n-i))) [0..n]
 
 
 --------------------------------------------------------------------------------
@@ -268,7 +251,7 @@ thresholdFingerprint t subs =
 
 thresholdFingerprintFromAsns :: Word16 -> [[ASN1]] -> Fingerprint
 thresholdFingerprintFromAsns t asns = 
-  let subs' = x690SortAsn asns -- TODO: encode only once?
+  let subs' = x690SortAsn asns
       c = Container Context 1
       asn = asnSeq Sequence $
         [ Other Context 0 (BS.pack $ bytesOfUInt $ fromIntegral t)
@@ -304,7 +287,7 @@ parseCondition = withContainerContext $ \tid -> do
   let cost = fromIntegral $ uIntFromBytes $ BS.unpack costbs
       condPart = anon tid bs cost
   subtypes <- if hasSubtypes $ getType $ condPart mempty
-                 then unTypeMask <$> parseOther 2 else pure mempty
+                 then fromBitString <$> parseOther 2 else pure mempty
   pure $ condPart subtypes
 
 

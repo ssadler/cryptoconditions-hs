@@ -11,6 +11,8 @@ module Network.CryptoConditions.Encoding
   , toData
   , toKey
   , parseASN1
+  , toBitString
+  , fromBitString
   ) where
 
 
@@ -18,6 +20,7 @@ import Crypto.Error (CryptoFailable(..))
 
 import Data.ASN1.BinaryEncoding
 import Data.ASN1.BinaryEncoding.Raw
+import Data.ASN1.BitArray
 import Data.ASN1.Encoding
 import Data.ASN1.Parse
 import Data.ASN1.Types
@@ -29,6 +32,7 @@ import Data.ByteString.Base64.URL as B64
 import qualified Data.ByteString.Char8 as C8
 import Data.List (sortOn)
 import Data.Monoid
+import qualified Data.Set as Set
 import Data.Word
 
 
@@ -40,7 +44,7 @@ b64EncodeStripped bs =
 
 
 b64DecodeStripped :: BS.ByteString -> Either String BS.ByteString
-b64DecodeStripped bs = 
+b64DecodeStripped bs =
   let r = 4 - mod (BS.length bs) 4
       n = if r == 4 then 0 else r
    in B64.decode $ bs <> C8.replicate n '='
@@ -87,3 +91,20 @@ toKey r = case r of
 
 toData :: BA.ByteArrayAccess a => a -> BS.ByteString
 toData = BS.pack . BA.unpack
+
+
+toBitString :: Set.Set Int -> BS.ByteString
+toBitString types =
+    let words = Set.map fromIntegral types
+        bitArray = foldl bitArraySetBit (BitArray 32 "\0") words
+        maxId = foldl max 0 types
+        bitsUnused = fromIntegral $ 7 - mod maxId 8
+     in BS.singleton bitsUnused <> bitArrayGetData bitArray
+
+
+fromBitString :: BS.ByteString -> Set.Set Int
+fromBitString maskbs = Set.fromList $
+  let [n, w] = fromIntegral <$> BS.unpack maskbs
+   in filter (\i -> 0 /= w .&. (shiftL 1 (n-i))) [0..n]
+
+

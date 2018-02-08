@@ -39,7 +39,7 @@ fiveBellsSuite = testGroup "fiveBells"
 
 suiteJson :: FromJSON a => FilePath -> a
 suiteJson file = unsafePerformIO $ do
-  let path = "ext/five-bells-condition/testsuite/valid/" <> file
+  let path = "ext/crypto-conditions/test-vectors/valid/" <> file
   fromJust . decodeStrict <$> BS.readFile path
 
 
@@ -47,7 +47,7 @@ fromB16 :: T.Text -> BS.ByteString
 fromB16 t = let (r,"") = B16.decode $ encodeUtf8 t
              in r
 
-fromB64 :: T.Text -> BS.ByteString    
+fromB64 :: T.Text -> BS.ByteString
 fromB64 = either error id . b64DecodeStripped . encodeUtf8
 
 

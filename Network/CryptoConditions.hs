@@ -37,6 +37,7 @@ data Condition =
 
 instance IsCondition Condition where
   getType (Anon 0 _ _ _) = preimageType
+  getType (Anon 1 _ _ _) = prefixType
   getType (Anon 2 _ _ _) = thresholdType
   getType (Anon 4 _ _ _) = ed25519Type
   getType (Threshold _ _) = thresholdType
