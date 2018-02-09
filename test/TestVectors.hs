@@ -1,14 +1,14 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module TestFiveBells
-  ( fiveBellsSuite
+module TestVectors
+  ( vectorSuite
   ) where
 
 
 import Test.Tasty
 import Test.Tasty.HUnit
 
-import Data.ASN1.Encoding 
+import Data.ASN1.Encoding
 import Data.ASN1.BinaryEncoding
 import Data.Aeson
 import Data.Aeson.Types
@@ -27,11 +27,9 @@ import Network.CryptoConditions.Encoding
 
 import TestSupport
 
-import Debug.Trace
 
-
-fiveBellsSuite :: TestTree
-fiveBellsSuite = testGroup "fiveBells"
+vectorSuite :: TestTree
+vectorSuite = testGroup "fiveBells"
   [ testVectors "0000_test-minimal-preimage.json"
   , testVectors "0001_test-minimal-prefix.json"
   , testVectors "0002_test-minimal-threshold.json"
@@ -48,6 +46,9 @@ testVectors file = testGroup file
   , testCase "getFulfillment" $ getFulfillment cond @?= Just ffillBin
   , testCase "getConditionURI" $ getConditionURI cond @?= condUri
   , testCase "validate" $ validate condUri cond msg @?= True
+  , testCase "readCondition" $
+      let econd = readCondition condBin :: Either String Condition
+       in (getConditionURI <$> econd) @?= Right condUri
   ]
   where
     val = unsafePerformIO $ do

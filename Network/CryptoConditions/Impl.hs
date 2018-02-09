@@ -93,6 +93,10 @@ readFulfillmentBase64 :: IsCondition c => Fulfillment -> Either String c
 readFulfillmentBase64 = readFulfillment . B64.decodeLenient 
 
 
+readCondition :: IsCondition c => BS.ByteString -> Either String c
+readCondition bs = parseASN1 bs parseCondition
+
+
 parsePoly :: IsCondition c => ParseASN1 c
 parsePoly = withContainerContext parseFulfillment
 
@@ -100,6 +104,16 @@ parsePoly = withContainerContext parseFulfillment
 validate :: IsCondition c => T.Text -> c -> Message -> Bool
 validate condUri ffill msg =
   verifyMessage ffill msg && getConditionURI ffill == condUri
+
+
+parseCondition :: IsCondition c => ParseASN1 c
+parseCondition = withContainerContext $ \tid -> do
+  (bs, costbs) <- (,) <$> parseOther 0 <*> parseOther 1
+  let cost = fromIntegral $ uIntFromBytes $ BS.unpack costbs
+      condPart = anon tid bs cost
+  subtypes <- if hasSubtypes $ getType $ condPart mempty
+                 then fromBitString <$> parseOther 2 else pure mempty
+  pure $ condPart subtypes
 
 
 --------------------------------------------------------------------------------
@@ -280,16 +294,6 @@ parseThreshold construct = do
   conds <- onNextContainer (Container Context 1) $ getMany parseCondition
   let t = fromIntegral $ length ffills
   pure $ construct t (conds ++ ffills)
-
-
-parseCondition :: IsCondition c => ParseASN1 c
-parseCondition = withContainerContext $ \tid -> do
-  (bs, costbs) <- (,) <$> parseOther 0 <*> parseOther 1
-  let cost = fromIntegral $ uIntFromBytes $ BS.unpack costbs
-      condPart = anon tid bs cost
-  subtypes <- if hasSubtypes $ getType $ condPart mempty
-                 then fromBitString <$> parseOther 2 else pure mempty
-  pure $ condPart subtypes
 
 
 verifyThreshold :: IsCondition c => Word16 -> [c] -> Message -> Bool

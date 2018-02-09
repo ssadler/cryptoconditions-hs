@@ -93,6 +93,8 @@ toData :: BA.ByteArrayAccess a => a -> BS.ByteString
 toData = BS.pack . BA.unpack
 
 
+-- TODO: Support larger bitstrings
+
 toBitString :: Set.Set Int -> BS.ByteString
 toBitString types =
     let words = Set.map fromIntegral types
@@ -104,7 +106,5 @@ toBitString types =
 
 fromBitString :: BS.ByteString -> Set.Set Int
 fromBitString maskbs = Set.fromList $
-  let [n, w] = fromIntegral <$> BS.unpack maskbs
-   in filter (\i -> 0 /= w .&. (shiftL 1 (n-i))) [0..n]
-
-
+  let [_, w] = fromIntegral <$> BS.unpack maskbs :: [Int]
+   in filter (\i -> 0 /= w .&. (shiftL 1 (7-i))) [0..7]

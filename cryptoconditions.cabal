@@ -1,5 +1,5 @@
 name:                cryptoconditions
-version:             0.2.0.0
+version:             0.2.1.0
 synopsis:            Interledger Crypto-Conditions
 description:         Please see README.md
 homepage:            https://github.com/libscott/cryptoconditions-hs
@@ -43,6 +43,7 @@ test-suite cryptoconditions-test
                      , base16-bytestring
                      , base64-bytestring
                      , bytestring
+                     , containers
                      , cryptonite
                      , aeson-quick
                      , text
