@@ -2,7 +2,7 @@ resolver: lts-7.15
 packages:
 - '.'
 extra-deps:
-- aeson-quick-0.1.1.2
+- aeson-quick-0.1.2.0
 
 flags: {}
 
