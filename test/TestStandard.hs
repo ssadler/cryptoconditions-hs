@@ -34,11 +34,15 @@ standardTests = testGroup "testStandard"
   , testFulfill "Test nested" $
       let subcond = Threshold 2 [ed2Alice, preimageCondition "a", ed2Eve]
        in Threshold 2 [ed2BobF, subcond]
+
+  , testFulfill "Test prefixed" $
+      Prefix "a" 20 ed2Alice
   
   , testCase "Test read fulfillment empty signatures" $
       let (Just ffillBin) = getFulfillment ed2Alice
           (Right cond') = readFulfillment ffillBin
        in assertEqual "Can decode unfulfilled fulfillment" ed2Alice cond'
+
   ]
 
 
@@ -48,9 +52,9 @@ testFulfill :: String -> Condition -> TestTree
 testFulfill name cond = testCase name $ do
   let msg = umsg
       uri = getConditionURI cond
-      badFfill = fulfillEd25519 pkAlice sigEve cond
+      badFfill = fulfillEd25519 pkAlice skEve umsg cond
       (Just ffillBin) = getFulfillment badFfill
-      goodFfill = fulfillEd25519 pkAlice sigAlice cond
+      goodFfill = fulfillEd25519 pkAlice skAlice umsg cond
   assertBool "can get fulfillment payload without signature" $ 
       Nothing /= getFulfillment cond
   assertEqual "get uri from bad fulfillment"

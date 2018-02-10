@@ -21,8 +21,8 @@ ed2Eve = ed25519Condition pkEve
 
 
 ed2BobF, ed2EveF :: Condition
-ed2BobF = fulfillEd25519 pkBob sigBob ed2Bob
-ed2EveF = fulfillEd25519 pkEve sigEve ed2Eve
+ed2BobF = fulfillEd25519 pkBob skBob umsg ed2Bob
+ed2EveF = fulfillEd25519 pkEve skEve umsg ed2Eve
 
 
 pkAlice, pkBob :: PublicKey

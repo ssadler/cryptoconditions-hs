@@ -22,6 +22,7 @@ import qualified Crypto.PubKey.Ed25519 as Ed2
 
 import Data.Aeson.Types
 import Data.ByteString as BS
+import Data.Monoid
 import Data.Word
 import qualified Data.Set as Set
 
@@ -99,13 +100,15 @@ ed25519Condition :: Ed2.PublicKey -> Condition
 ed25519Condition pk = Ed25519 pk Nothing
 
 
-fulfillEd25519 :: Ed2.PublicKey -> Ed2.Signature
-               -> Condition -> Condition
-fulfillEd25519 pk sig (Threshold t subs) =
-  Threshold t $ fulfillEd25519 pk sig <$> subs
-fulfillEd25519 pk sig e@(Ed25519 pk' Nothing) =
-  if pk == pk' then Ed25519 pk (Just sig) else e
-fulfillEd25519 _ _ c = c
+fulfillEd25519 :: Ed2.PublicKey -> Ed2.SecretKey
+               -> Message -> Condition -> Condition
+fulfillEd25519 pk sk msg c@(Ed25519 pk' _) =
+  if pk == pk' then Ed25519 pk (Just $ Ed2.sign sk pk msg) else c
+fulfillEd25519 pk sk msg (Threshold t subs) =
+  Threshold t $ fulfillEd25519 pk sk msg <$> subs
+fulfillEd25519 pk sk msg (Prefix pre mml sub) =
+  Prefix pre mml $ fulfillEd25519 pk sk (pre <> msg) sub
+fulfillEd25519 _ _ _ c = c
 
 
 readStandardFulfillment :: Fulfillment -> Either String Condition
