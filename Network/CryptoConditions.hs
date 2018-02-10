@@ -62,7 +62,7 @@ instance IsCondition Condition where
   getFingerprint (Anon _ fp _ _) = fp
 
   getFulfillment (Threshold t subs) = thresholdFulfillment t subs
-  getFulfillment (Ed25519 pk msig) = ed25519Fulfillment pk <$> msig
+  getFulfillment (Ed25519 pk msig) = ed25519Fulfillment pk msig
   getFulfillment (Preimage pre) = Just $ preimageFulfillment pre
   getFulfillment (Prefix pre mml c) =  prefixFulfillment pre mml c
   getFulfillment (Anon _ _ _ _) = Nothing
@@ -75,7 +75,7 @@ instance IsCondition Condition where
   parseFulfillment 0 = parsePreimage Preimage
   parseFulfillment 1 = parsePrefix Prefix
   parseFulfillment 2 = parseThreshold Threshold
-  parseFulfillment 4 = parseEd25519 (\a b -> Ed25519 a (Just b))
+  parseFulfillment 4 = parseEd25519 Ed25519
 
   verifyMessage (Preimage image) = verifyPreimage image
   verifyMessage (Prefix pre mml cond) = verifyPrefix pre mml cond

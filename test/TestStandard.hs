@@ -34,6 +34,11 @@ standardTests = testGroup "testStandard"
   , testFulfill "Test nested" $
       let subcond = Threshold 2 [ed2Alice, preimageCondition "a", ed2Eve]
        in Threshold 2 [ed2BobF, subcond]
+  
+  , testCase "Test read fulfillment empty signatures" $
+      let (Just ffillBin) = getFulfillment ed2Alice
+          (Right cond') = readFulfillment ffillBin
+       in assertEqual "Can decode unfulfilled fulfillment" ed2Alice cond'
   ]
 
 
@@ -46,8 +51,8 @@ testFulfill name cond = testCase name $ do
       badFfill = fulfillEd25519 pkAlice sigEve cond
       (Just ffillBin) = getFulfillment badFfill
       goodFfill = fulfillEd25519 pkAlice sigAlice cond
-  assertEqual "can not get fulfillment payload without signature"
-      Nothing $ getFulfillment cond
+  assertBool "can get fulfillment payload without signature" $ 
+      Nothing /= getFulfillment cond
   assertEqual "get uri from bad fulfillment"
     (Right uri) $ getConditionURI <$> readStandardFulfillment ffillBin
   assertBool "wrong sig right message does not validate" $

@@ -329,17 +329,21 @@ ed25519Fingerprint pk = sha256 body
               ]
 
 
-ed25519Fulfillment :: Ed2.PublicKey -> Ed2.Signature -> Fulfillment
-ed25519Fulfillment pk sig = encodeASN1' DER body
-  where body = fiveBellsContainer (typeId ed25519Type) [toData pk, toData sig]
+ed25519Fulfillment :: Ed2.PublicKey -> Maybe Ed2.Signature -> Maybe Fulfillment
+ed25519Fulfillment pk msig = Just $ encodeASN1' DER body
+  where body = fiveBellsContainer (typeId ed25519Type) [toData pk, sig]
+        sig = maybe "" toData msig
 
 
-parseEd25519 :: (Ed2.PublicKey -> Ed2.Signature -> c) -> ParseASN1 c
+parseEd25519 :: (Ed2.PublicKey -> Maybe Ed2.Signature -> c) -> ParseASN1 c
 parseEd25519 construct = do
   (bspk, bssig) <- (,) <$> parseOther 0 <*> parseOther 1
+  let msig = case bssig of
+                  "" -> pure Nothing
+                  bs -> Just <$> (toKey (Ed2.signature bs))
   either throwParseError pure $
     construct <$> toKey (Ed2.publicKey bspk)
-              <*> toKey (Ed2.signature bssig)
+              <*> msig
 
 
 verifyEd25519 :: Ed2.PublicKey -> Ed2.Signature -> Message -> Bool
