@@ -36,6 +36,10 @@ test-suite cryptoconditions-test
   type:                exitcode-stdio-1.0
   hs-source-dirs:      test
   main-is:             Tests.hs
+  other-modules:       TestStandard
+                     , TestSupport
+                     , TestUnits
+                     , TestVectors
   build-depends:       base
                      , cryptoconditions
                      , aeson
