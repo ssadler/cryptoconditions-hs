@@ -9,6 +9,8 @@ module Network.CryptoConditions.Json
   , toJsonPrefix
   , toJsonThreshold
   , toJsonEd25519
+  , fromB64
+  , toB64
   ) where
 
 
@@ -56,13 +58,13 @@ parseJsonPreimage f obj =
 --
 
 toJsonPreimage :: ByteString -> Value
-toJsonPreimage img = object ["type" .= String "preimage-sha-256", "preimage" .= binToJson img]
+toJsonPreimage img = object ["type" .= String "preimage-sha-256", "preimage" .= toB64 img]
 
 
 toJsonPrefix :: (IsCondition c, ToJSON c) => ByteString -> Int -> c -> Value
 toJsonPrefix pre mml sub =
   object [ "type".= String "prefix-sha-256"
-         , "prefix" .= binToJson pre
+         , "prefix" .= toB64 pre
          , "subfulfillment" .= sub
          ]
 
@@ -98,5 +100,5 @@ keyToJson :: BA.ByteArrayAccess k => k -> Value
 keyToJson = String . decodeUtf8 . b64EncodeStripped . BS.pack . BA.unpack
 
 
-binToJson :: ByteString -> Value
-binToJson = String . decodeUtf8 . b64EncodeStripped
+toB64 :: ByteString -> Value
+toB64 = String . decodeUtf8 . b64EncodeStripped
