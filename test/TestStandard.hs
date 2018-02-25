@@ -37,12 +37,6 @@ standardTests = testGroup "testStandard"
 
   , testFulfill "Test prefixed" $
       Prefix "a" 20 ed2Alice
-  
-  , testCase "Test read fulfillment empty signatures" $
-      let (Just ffillBin) = getFulfillment ed2Alice
-          (Right cond') = readFulfillment ffillBin
-       in assertEqual "Can decode unfulfilled fulfillment" ed2Alice cond'
-
   ]
 
 
@@ -55,8 +49,8 @@ testFulfill name cond = testCase name $ do
       badFfill = fulfillEd25519 pkAlice skEve umsg cond
       (Just ffillBin) = getFulfillment badFfill
       goodFfill = fulfillEd25519 pkAlice skAlice umsg cond
-  assertBool "can get fulfillment payload without signature" $ 
-      Nothing /= getFulfillment cond
+  assertEqual "can not get fulfillment payload without signature"
+      Nothing $ getFulfillment cond
   assertEqual "get uri from bad fulfillment"
     (Right uri) $ getConditionURI <$> readStandardFulfillment ffillBin
   assertBool "wrong sig right message does not validate" $
