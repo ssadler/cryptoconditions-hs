@@ -15,7 +15,6 @@ module Network.CryptoConditions
   , ed25519Condition
   , preimageCondition
   , fulfillEd25519
-  , readStandardFulfillment
   ) where
 
 import qualified Crypto.PubKey.Ed25519 as Ed2
@@ -62,11 +61,11 @@ instance IsCondition Condition where
   getFingerprint (Prefix pre mml c) = prefixFingerprint pre mml c
   getFingerprint (Anon _ fp _ _) = fp
 
-  getFulfillment (Threshold t subs) = thresholdFulfillment t subs
-  getFulfillment (Ed25519 pk msig) = ed25519Fulfillment pk <$> msig
-  getFulfillment (Preimage pre) = Just $ preimageFulfillment pre
-  getFulfillment (Prefix pre mml c) =  prefixFulfillment pre mml c
-  getFulfillment (Anon _ _ _ _) = Nothing
+  getFulfillmentASN (Threshold t subs) = thresholdFulfillmentASN t subs
+  getFulfillmentASN (Ed25519 pk msig) = ed25519FulfillmentASN pk <$> msig
+  getFulfillmentASN (Preimage pre) = Just $ preimageFulfillmentASN pre
+  getFulfillmentASN (Prefix pre mml c) =  prefixFulfillmentASN pre mml c
+  getFulfillmentASN (Anon _ _ _ _) = Nothing
 
   getSubtypes (Threshold _ sts) = thresholdSubtypes sts
   getSubtypes (Anon _ _ _ sts) = sts
@@ -109,10 +108,6 @@ fulfillEd25519 pk sk msg (Threshold t subs) =
 fulfillEd25519 pk sk msg (Prefix pre mml sub) =
   Prefix pre mml $ fulfillEd25519 pk sk (pre <> msg) sub
 fulfillEd25519 _ _ _ c = c
-
-
-readStandardFulfillment :: Fulfillment -> Either String Condition
-readStandardFulfillment = readFulfillment
 
 
 instance ToJSON Condition where

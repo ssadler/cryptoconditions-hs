@@ -36,8 +36,8 @@ import Network.CryptoConditions.Encoding
 class Show c => IsCondition c where
   getCost :: c -> Int
   getType :: c -> ConditionType
-  getFingerprint :: c -> BS.ByteString
-  getFulfillment :: c -> Maybe BS.ByteString
+  getFingerprint :: c -> Fingerprint
+  getFulfillmentASN :: c -> Maybe [ASN1]
   getSubtypes :: c -> Set.Set ConditionType
   parseFulfillment :: Int -> ParseASN1 c
   verifyMessage :: c -> Message -> Bool
@@ -53,18 +53,18 @@ type Fingerprint = BS.ByteString
 
 
 encodeCondition :: IsCondition c => c -> BS.ByteString
-encodeCondition = encodeASN1' DER . encodeConditionASN
+encodeCondition = encodeASN1' DER . getConditionASN
 
 
-encodeConditionASN :: IsCondition c => c -> [ASN1]
-encodeConditionASN c =
+getConditionASN :: IsCondition c => c -> [ASN1]
+getConditionASN c =
   let ct = getType c
       fingerprint = getFingerprint c
       costBs = BS.pack $ bytesOfUInt $ fromIntegral $ getCost c
       subtypes = toBitString $ Set.map typeId $ getSubtypes c
       body = [fingerprint, costBs] ++
              if hasSubtypes ct then [subtypes] else []
-   in fiveBellsContainer (typeId ct) body
+   in asnChoice (typeId ct) $ asnData body
 
 
 getConditionURI :: IsCondition c => c -> T.Text
@@ -80,21 +80,24 @@ getConditionURI c =
        <> cost <> subtypes
 
 
-getFulfillmentBase64 :: IsCondition c => c -> Maybe T.Text
-getFulfillmentBase64 =
-  fmap (decodeUtf8 . B64.encode) . getFulfillment
+encodeFulfillment :: IsCondition c => c -> Maybe Fulfillment
+encodeFulfillment cond = encodeASN1' DER <$> getFulfillmentASN cond
 
 
-readFulfillment :: IsCondition c => Fulfillment -> Either String c
-readFulfillment bs = parseASN1 bs parsePoly
+encodeFulfillmentBase64 :: IsCondition c => c -> Maybe T.Text
+encodeFulfillmentBase64 cond = decodeUtf8 . B64.encode <$> encodeFulfillment cond
 
 
-readFulfillmentBase64 :: IsCondition c => Fulfillment -> Either String c
-readFulfillmentBase64 = readFulfillment . B64.decodeLenient 
+decodeFulfillment :: IsCondition c => Fulfillment -> Either String c
+decodeFulfillment bs = parseASN1 bs parsePoly
 
 
-readCondition :: IsCondition c => BS.ByteString -> Either String c
-readCondition bs = parseASN1 bs parseCondition
+decodeFulfillmentBase64 :: IsCondition c => Fulfillment -> Either String c
+decodeFulfillmentBase64 = decodeFulfillment . B64.decodeLenient
+
+
+decodeCondition :: IsCondition c => BS.ByteString -> Either String c
+decodeCondition bs = parseASN1 bs parseCondition
 
 
 parsePoly :: IsCondition c => ParseASN1 c
@@ -150,9 +153,8 @@ preimageType :: ConditionType
 preimageType = CT 0 "preimage-sha-256" False "sha-256"
 
 
-preimageFulfillment :: BS.ByteString -> Fulfillment
-preimageFulfillment pre = encodeASN1' DER body
-  where body = fiveBellsContainer (typeId preimageType) [pre]
+preimageFulfillmentASN :: BS.ByteString -> [ASN1]
+preimageFulfillmentASN pre = asnChoice 0 $ asnData [pre]
 
 
 preimageCost :: BS.ByteString -> Int
@@ -187,27 +189,19 @@ prefixCost pre maxMessageLength c =
 
 
 prefixFingerprint :: IsCondition c => Prefix -> Int -> c -> Fingerprint
-prefixFingerprint pre mml cond = sha256 body
-  where body = encodeASN1' DER asn
-        mmlbs = BS.pack $ bytesOfUInt $ fromIntegral mml
-        condAsn = encodeConditionASN cond
-        asn = asnSeq Sequence $
-              [ Other Context 0 pre
-              , Other Context 1 mmlbs
-              ] ++ asnSeq (Container Context 2) condAsn
+prefixFingerprint pre mml cond = hashASN $ asn
+  where
+    mmlbs = BS.pack $ bytesOfUInt $ fromIntegral mml
+    condAsn = getConditionASN cond
+    asn = asnSequence Sequence $ asnData [pre, mmlbs] ++ asnChoice 2 condAsn
 
 
-prefixFulfillment :: IsCondition c => Prefix -> Int -> c -> Maybe Fulfillment
-prefixFulfillment pre mml cond =
+prefixFulfillmentASN :: IsCondition c => Prefix -> Int -> c -> Maybe [ASN1]
+prefixFulfillmentASN pre mml cond =
   let mmlbs = BS.pack $ bytesOfUInt $ fromIntegral mml
-      msubffill = getFulfillment cond
-      getAsn subffill =
-        let subAsn = either (error . show) id $ decodeASN1' DER $ subffill
-         in asnSeq (Container Context 1) $
-             [ Other Context 0 pre
-             , Other Context 1 mmlbs
-             ] ++ asnSeq (Container Context 2) subAsn
-   in encodeASN1' DER . getAsn <$> msubffill
+      getAsn subasn =
+        asnChoice 1 $ asnData [pre, mmlbs] ++ asnChoice 2 subasn
+   in getAsn <$> getFulfillmentASN cond
 
 
 prefixSubtypes :: IsCondition c => c -> Set.Set ConditionType
@@ -221,7 +215,7 @@ parsePrefix :: IsCondition c => (Prefix -> Int -> c -> c) -> ParseASN1 c
 parsePrefix construct = do
   (pre, mmlbs) <- (,) <$> parseOther 0 <*> parseOther 1
   let mml = fromIntegral $ uIntFromBytes $ BS.unpack mmlbs
-  cond <- onNextContainer (Container Context 2) parsePoly
+  cond <- parseContainer 2 parsePoly
   pure $ construct pre mml cond
 
 
@@ -239,19 +233,15 @@ thresholdType :: ConditionType
 thresholdType = CT 2 "threshold-sha-256" True "sha-256"
 
 
-thresholdFulfillment :: IsCondition c => Word16 -> [c] -> Maybe Fulfillment
-thresholdFulfillment t subs =
+thresholdFulfillmentASN :: IsCondition c => Word16 -> [c] -> Maybe [ASN1]
+thresholdFulfillmentASN t subs =
   let ti = fromIntegral t
-      withFf = zip subs (getFulfillment <$> subs)
+      withFf = zip subs (getFulfillmentASN <$> subs)
       byCost = sortOn ffillCost withFf
       ffills = take ti $ catMaybes $ snd <$> byCost
-      conds = encodeConditionASN . fst <$> drop ti byCost
-      ffills' = either (error . show) id . decodeASN1' DER <$> ffills
-      asn = asnSeq (Container Context 2) $
-              asnSeq (Container Context 0) (concat ffills') ++
-              asnSeq (Container Context 1) (concat conds)
-      encoded = encodeASN1' DER asn
-   in if length ffills == ti then Just encoded else Nothing
+      conds = getConditionASN . fst <$> drop ti byCost
+      asn = asnChoice 2 $ asnChoice 0 (concat ffills) ++ asnChoice 1 (concat conds)
+   in if length ffills == ti then Just asn else Nothing
   where
     -- order by has ffill then cost of ffill
     ffillCost (c, Just _) = (0::Int, getCost c)
@@ -260,18 +250,16 @@ thresholdFulfillment t subs =
 
 thresholdFingerprint :: IsCondition c => Word16 -> [c] -> Fingerprint
 thresholdFingerprint t subs =
-  let asns = encodeConditionASN <$> subs
+  let asns = getConditionASN <$> subs
    in thresholdFingerprintFromAsns t asns
 
 
 thresholdFingerprintFromAsns :: Word16 -> [[ASN1]] -> Fingerprint
 thresholdFingerprintFromAsns t asns = 
   let subs' = x690SortAsn asns
-      c = Container Context 1
-      asn = asnSeq Sequence $
-        [ Other Context 0 (BS.pack $ bytesOfUInt $ fromIntegral t)
-        , Start c
-        ] ++ concat subs' ++ [End c]
+      asn = asnSequence Sequence $
+              asnData [BS.pack $ bytesOfUInt $ fromIntegral t] ++
+              asnChoice 1 (concat subs')
    in sha256 $ encodeASN1' DER asn
 
 
@@ -290,8 +278,8 @@ thresholdCost t subs =
 
 parseThreshold :: IsCondition c => (Word16 -> [c] -> c) -> ParseASN1 c
 parseThreshold construct = do
-  ffills <- onNextContainer (Container Context 0) $ getMany parsePoly
-  conds <- onNextContainer (Container Context 1) $ getMany parseCondition
+  ffills <- parseContainer 0 $ getMany parsePoly
+  conds <- parseContainer 1 $ getMany parseCondition
   let t = fromIntegral $ length ffills
   pure $ construct t (conds ++ ffills)
 
@@ -322,16 +310,12 @@ ed25519Cost = 131072
 
 
 ed25519Fingerprint :: Ed2.PublicKey -> Fingerprint
-ed25519Fingerprint pk = sha256 body
-  where body = encodeASN1' DER asn
-        asn = [ Start Sequence
-              , Other Context 0 $ toData pk
-              ]
+ed25519Fingerprint pk =
+  hashASN $ asnSequence Sequence $ asnData [toData pk]
 
 
-ed25519Fulfillment :: Ed2.PublicKey -> Ed2.Signature -> Fulfillment
-ed25519Fulfillment pk sig = encodeASN1' DER body
-  where body = fiveBellsContainer (typeId ed25519Type) [toData pk, toData sig]
+ed25519FulfillmentASN :: Ed2.PublicKey -> Ed2.Signature -> [ASN1]
+ed25519FulfillmentASN pk sig = asnChoice 4 $ asnData [toData pk, toData sig]
 
 
 parseEd25519 :: (Ed2.PublicKey -> Ed2.Signature -> c) -> ParseASN1 c
@@ -345,12 +329,17 @@ parseEd25519 construct = do
 verifyEd25519 :: Ed2.PublicKey -> Ed2.Signature -> Message -> Bool
 verifyEd25519 pk = flip (Ed2.verify pk)
 
+
 --------------------------------------------------------------------------------
 -- Utilities
 
 
 sha256 :: BA.ByteArrayAccess a => a -> BS.ByteString
 sha256 a = BS.pack $ BA.unpack $ (hash a :: Digest SHA256)
+
+
+hashASN :: [ASN1] -> Fingerprint
+hashASN = sha256 . encodeASN1' DER
 
 
 withContainerContext :: (Int -> ParseASN1 a) -> ParseASN1 a
@@ -363,6 +352,10 @@ withContainerContext fp = do
       if end /= End c then throwParseError "Failed parsing end"
                       else pure res
     other -> throwParseError ("Not a container context: " ++ show other)
+
+
+parseContainer :: Int -> ParseASN1 a -> ParseASN1 a
+parseContainer = onNextContainer . Container Context
 
 
 parseOther :: Int -> ParseASN1 BS.ByteString

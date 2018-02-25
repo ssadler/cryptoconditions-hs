@@ -1,5 +1,5 @@
 name:                cryptoconditions
-version:             0.2.2.3
+version:             0.2.3.0
 synopsis:            Interledger Crypto-Conditions
 description:         Please see README.md
 homepage:            https://github.com/libscott/cryptoconditions-hs

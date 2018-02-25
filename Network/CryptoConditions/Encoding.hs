@@ -4,10 +4,11 @@ module Network.CryptoConditions.Encoding
   ( x690SortAsn
   , b64EncodeStripped
   , b64DecodeStripped
-  , asnSeq
   , bytesOfUInt
   , uIntFromBytes
-  , fiveBellsContainer
+  , asnData
+  , asnChoice
+  , asnSequence
   , toData
   , toKey
   , parseASN1
@@ -54,14 +55,18 @@ x690SortAsn :: [[ASN1]] -> [[ASN1]]
 x690SortAsn = sortOn (\a -> let b = encodeASN1' DER a in (BS.length b, b))
 
 
-asnSeq :: ASN1ConstructionType -> [ASN1] -> [ASN1]
-asnSeq c args = [Start c] ++ args ++ [End c]
+asnSequence :: ASN1ConstructionType -> [ASN1] -> [ASN1]
+asnSequence c args = [Start c] ++ args ++ [End c]
 
 
-fiveBellsContainer :: Integral i => i -> [BS.ByteString] -> [ASN1]
-fiveBellsContainer tid bs =
+asnChoice :: Integral i => i -> [ASN1] -> [ASN1]
+asnChoice tid asn =
   let c = Container Context $ fromIntegral tid
-   in asnSeq c [Other Context i s | (i,s) <- zip [0..] bs]
+   in asnSequence c asn
+
+
+asnData :: [BS.ByteString] -> [ASN1]
+asnData bss = [Other Context i s | (i,s) <- zip [0..] bss]
 
 
 bytesOfUInt :: Integer -> [Word8]

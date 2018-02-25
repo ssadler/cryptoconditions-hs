@@ -47,12 +47,13 @@ testFulfill name cond = testCase name $ do
   let msg = umsg
       uri = getConditionURI cond
       badFfill = fulfillEd25519 pkAlice skEve umsg cond
-      (Just ffillBin) = getFulfillment badFfill
+      (Just ffillBin) = encodeFulfillment badFfill
       goodFfill = fulfillEd25519 pkAlice skAlice umsg cond
+      econd = decodeFulfillment ffillBin :: Either String Condition
   assertEqual "can not get fulfillment payload without signature"
-      Nothing $ getFulfillment cond
-  assertEqual "get uri from bad fulfillment"
-    (Right uri) $ getConditionURI <$> readStandardFulfillment ffillBin
+      Nothing $ encodeFulfillment cond
+  assertEqual "get uri from good fulfillment"
+    (Right uri) $ getConditionURI <$> econd
   assertBool "wrong sig right message does not validate" $
       not $ validate uri badFfill msg
   assertBool "wrong msg right sig does not validate" $

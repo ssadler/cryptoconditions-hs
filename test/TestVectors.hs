@@ -43,11 +43,11 @@ vectorSuite = testGroup "fiveBells"
 testVectors :: String -> TestTree
 testVectors file = testGroup file
   [ testCase "encodeCondition" $ encodeCondition cond @?= condBin
-  , testCase "getFulfillment" $ getFulfillment cond @?= Just ffillBin
+  , testCase "encodeFulfillment" $ encodeFulfillment cond @?= Just ffillBin
   , testCase "getConditionURI" $ getConditionURI cond @?= condUri
   , testCase "validate" $ validate condUri cond msg @?= True
-  , testCase "readCondition" $
-      let econd = readCondition condBin :: Either String Condition
+  , testCase "decodeCondition" $
+      let econd = decodeCondition condBin :: Either String Condition
        in (getConditionURI <$> econd) @?= Right condUri
   ]
   where
