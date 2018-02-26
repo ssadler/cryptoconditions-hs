@@ -44,6 +44,7 @@ instance IsCondition Condition where
   getType (Anon 1 _ _ _) = prefixType
   getType (Anon 2 _ _ _) = thresholdType
   getType (Anon 4 _ _ _) = ed25519Type
+  getType (Anon n _ _ cts) = CT n "UNKNOWN" (cts == mempty) ""
   getType (Threshold _ _) = thresholdType
   getType (Ed25519 _ _) = ed25519Type
   getType (Preimage _) = preimageType
@@ -68,14 +69,15 @@ instance IsCondition Condition where
   getFulfillmentASN (Anon _ _ _ _) = Nothing
 
   getSubtypes (Threshold _ sts) = thresholdSubtypes sts
-  getSubtypes (Anon _ _ _ sts) = sts
-  getSubtypes (Prefix _ _ c)     = prefixSubtypes c
-  getSubtypes _                = mempty
+  getSubtypes (Anon _ _ _ sts)  = sts
+  getSubtypes (Prefix _ _ c)    = prefixSubtypes c
+  getSubtypes _                 = mempty
 
   parseFulfillment 0 = parsePreimage Preimage
   parseFulfillment 1 = parsePrefix Prefix
   parseFulfillment 2 = parseThreshold Threshold
   parseFulfillment 4 = parseEd25519 (\a b -> Ed25519 a (Just b))
+  parseFulfillment n = fail ("unknown condition type: " ++ show n)
 
   verifyMessage (Preimage image) = verifyPreimage image
   verifyMessage (Prefix pre mml cond) = verifyPrefix pre mml cond
@@ -115,15 +117,16 @@ instance ToJSON Condition where
   toJSON (Ed25519 pk msig) = toJsonEd25519 pk msig
   toJSON (Prefix pre mml c) = toJsonPrefix pre mml c
   toJSON (Preimage img) = toJsonPreimage img
+  toJSON c@(Anon _ _ _ _) = toJsonAnon c 
 
 
 instance FromJSON Condition where
   parseJSON = withObject "condition" $ \o -> do
-    typeName <- o .: "type"
-    let method = case typeName of
+    name <- o .: "type"
+    let method = case name of
          "preimage-sha-256" -> CCJ.parseJsonPreimage Preimage
          "prefix-sha-256" -> parseJsonPrefix Prefix
          "threshold-sha-256" -> parseJsonThreshold Threshold
          "ed25519-sha-256" -> parseJsonEd25519 Ed25519
-         _                 -> fail ("Unknown Crypto-Condition type: " ++ typeName)
+         _                 -> fail ("Unknown Crypto-Condition type: " ++ name)
     method o

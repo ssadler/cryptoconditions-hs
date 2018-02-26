@@ -4,30 +4,26 @@
 module Network.CryptoConditions.Impl where
 
 
-import Crypto.Hash
+import           Crypto.Hash
 import qualified Crypto.PubKey.Ed25519 as Ed2
 
-import Control.Monad (when)
-
-import qualified Data.Aeson.Types as Aeson
-import Data.ASN1.BinaryEncoding
-import Data.ASN1.BinaryEncoding.Raw
-import Data.ASN1.Encoding
-import Data.ASN1.Parse
-import Data.ASN1.Types
-import Data.Bits
+import           Data.ASN1.BinaryEncoding
+import           Data.ASN1.BinaryEncoding.Raw
+import           Data.ASN1.Encoding
+import           Data.ASN1.Parse
+import           Data.ASN1.Types
 import qualified Data.ByteArray as BA
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Base64.URL as B64
-import Data.List (sortOn)
-import Data.Maybe
-import Data.Monoid
+import           Data.List (sortOn)
+import           Data.Maybe
+import           Data.Monoid
 import qualified Data.Set as Set
 import qualified Data.Text as T
-import Data.Text.Encoding (decodeUtf8)
-import Data.Word
+import           Data.Text.Encoding (decodeUtf8)
+import           Data.Word
 
-import Network.CryptoConditions.Encoding
+import           Network.CryptoConditions.Encoding
 
 
 --------------------------------------------------------------------------------
@@ -222,7 +218,7 @@ parsePrefix construct = do
 verifyPrefix :: IsCondition c => Prefix -> Int -> c -> Message -> Bool
 verifyPrefix prefix mml cond msg =
   let ok = mml >= BS.length msg
-   in verifyMessage cond (prefix <> msg)
+   in ok && verifyMessage cond (prefix <> msg)
 
 
 --------------------------------------------------------------------------------
@@ -365,4 +361,4 @@ parseOther n = do
     (Other Context i bs) ->
       if n == i then pure bs
                 else throwParseError $ "Invalid context id: " ++ show (n,i)
-    other -> throwParseError "agh" -- TODO
+    notOther -> throwParseError ("Unexpected element: " ++ show notOther)

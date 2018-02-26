@@ -59,7 +59,7 @@ asnSequence :: ASN1ConstructionType -> [ASN1] -> [ASN1]
 asnSequence c args = [Start c] ++ args ++ [End c]
 
 
-asnChoice :: Integral i => i -> [ASN1] -> [ASN1]
+asnChoice :: Int -> [ASN1] -> [ASN1]
 asnChoice tid asn =
   let c = Container Context $ fromIntegral tid
    in asnSequence c asn
@@ -102,8 +102,8 @@ toData = BS.pack . BA.unpack
 
 toBitString :: Set.Set Int -> BS.ByteString
 toBitString types =
-    let words = Set.map fromIntegral types
-        bitArray = foldl bitArraySetBit (BitArray 32 "\0") words
+    let ids = Set.map fromIntegral types
+        bitArray = foldl bitArraySetBit (BitArray 32 "\0") ids
         maxId = foldl max 0 types
         bitsUnused = fromIntegral $ 7 - mod maxId 8
      in BS.singleton bitsUnused <> bitArrayGetData bitArray
