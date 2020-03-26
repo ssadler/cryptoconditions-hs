@@ -256,7 +256,7 @@ thresholdFingerprintFromAsns t asns =
       asn = asnSequence Sequence $
               asnData [BS.pack $ bytesOfUInt $ fromIntegral t] ++
               asnChoice 1 (concat subs')
-   in sha256 $ encodeASN1' DER asn
+   in hashASN asn
 
 
 thresholdSubtypes :: IsCondition c => [c] -> Set.Set ConditionType

@@ -26,6 +26,8 @@ testBitStrings = testGroup "bitString" $
              , [1]
              , [0, 1]
              , [2, 7]
+             , [15, 32]
+             , [155]
              ]
       test set = assertEqual "bit string equal" set (fromBitString $ toBitString set)
    in (\s -> testCase (show s) (test $ Set.fromList s)) <$> sets

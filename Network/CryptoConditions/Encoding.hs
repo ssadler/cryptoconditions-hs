@@ -98,18 +98,24 @@ toData :: BA.ByteArrayAccess a => a -> BS.ByteString
 toData = BS.pack . BA.unpack
 
 
--- TODO: Support larger bitstrings
-
 toBitString :: Set.Set Int -> BS.ByteString
 toBitString types =
     let ids = Set.map fromIntegral types
-        bitArray = foldl bitArraySetBit (BitArray 32 "\0") ids
         maxId = foldl max 0 types
+        bitArray = foldl bitArraySetBit (newBitArray maxId) ids
         bitsUnused = fromIntegral $ 7 - mod maxId 8
      in BS.singleton bitsUnused <> bitArrayGetData bitArray
 
 
+newBitArray :: Int -> BitArray
+newBitArray maxId =
+  let n = ceiling $ (fromIntegral maxId+1) / 8
+   in BitArray (n*8) (BS.replicate (fromIntegral n) 0)
+
+
 fromBitString :: BS.ByteString -> Set.Set Int
 fromBitString maskbs = Set.fromList $
-  let [_, w] = fromIntegral <$> BS.unpack maskbs :: [Int]
-   in filter (\i -> 0 /= w .&. (shiftL 1 (7-i))) [0..7]
+  let bytes = BS.tail maskbs
+      capacity = 8 * BS.length bytes
+      ba = BitArray (fromIntegral capacity) bytes
+   in [i | i <- [0..capacity-1], bitArrayGetBit ba (fromIntegral i)]
