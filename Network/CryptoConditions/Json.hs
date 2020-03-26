@@ -15,6 +15,7 @@ module Network.CryptoConditions.Json
   ) where
 
 
+import Control.Monad.Fail (MonadFail)
 import Crypto.PubKey.Ed25519
 import Crypto.Error
 
@@ -95,7 +96,7 @@ toJsonAnon cond =
 -- Util
 --
 
-fromB64 :: Text -> Parser ByteString
+fromB64 :: MonadFail m => Text -> m ByteString
 fromB64 = either fail pure . b64DecodeStripped . encodeUtf8
 
 
